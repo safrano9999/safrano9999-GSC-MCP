@@ -1,0 +1,23 @@
+#CONTAINER-NAME
+CONTAINER_NAME=safrano9999-gsc-mcp
+
+#container-command: image
+IMAGE=ghcr.io/safrano9999/safrano9999-gsc-mcp:latest
+#container-port: GSC_MCP_PUBLISH_PORT 8000
+
+#default-preset: 127.0.0.1
+GSC_MCP_PUBLISH_HOST=127.0.0.1
+
+# Leave empty for Podman-network-only access. Internal port is always 8000.
+GSC_MCP_PUBLISH_PORT=
+
+# Optional OAuth persistence. Leave empty for environment-only service accounts.
+# OAuth value: ${CONTAINER_NAME}-data:/data:Z
+GSC_MCP_VOLUMES=
+
+# Additional Quadlet settings, e.g. Network=core.
+# For OAuth setup only: PublishPort=127.0.0.1:3000:3000
+#repeat-group: ADDITIONAL_LINE suffix02 ADDITIONAL_LINE
+#repeat-freeform: ADDITIONAL_LINE
+ADDITIONAL_LINE=Pull=never
+ADDITIONAL_LINE_02=

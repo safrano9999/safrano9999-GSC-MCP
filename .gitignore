@@ -1,0 +1,17 @@
+.env
+*.env
+config.conf
+container.conf
+build.conf
+*_config.conf
+*_container.conf
+*.container
+*-compose.yml
+docker-compose.yml
+node_modules/
+__pycache__/
+.pytest_cache/
+/data/
+*.enc
+service-account*.json
+oauth_credentials*.json

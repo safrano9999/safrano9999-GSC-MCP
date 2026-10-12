@@ -1,0 +1,120 @@
+# Source of truth: SCRIPTS/githubactions. Generated copies are overwritten.
+name: GSC MCP container image
+
+on:
+  push:
+    tags: ['20*.*.*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing repository release tag (YYYY.M.N)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: gsc-mcp-release
+  cancel-in-progress: false
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE_NAME: ghcr.io/safrano9999/safrano9999-gsc-mcp
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.release_tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Use repository release version
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^[0-9]{4}\.[0-9]{1,2}\.[1-9][0-9]*$ ]]
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Quadlet examples
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Build candidate on GitHub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .github/scripts/Containerfile
+          platforms: linux/amd64
+          pull: true
+          load: true
+          push: false
+          tags: gsc-mcp-candidate:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.version=${{ env.RELEASE_TAG }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.revision }}
+            io.safrano9999.build.commit=${{ steps.release.outputs.revision }}
+
+      - name: Test HTTP MCP and persistent OAuth identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="gsc-mcp-candidate:${GITHUB_SHA}"
+          volume="gsc-mcp-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker volume create "$volume" >/dev/null
+          container_id=""
+          cleanup() {
+            if [ -n "$container_id" ]; then docker rm -f "$container_id" >/dev/null 2>&1 || true; fi
+            docker volume rm "$volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          start_candidate() {
+            container_id="$(docker run --pull=never -d --network none -v "$volume:/data" "$image")"
+            for attempt in $(seq 1 40); do
+              if docker exec "$container_id" node -e \
+                'fetch("http://127.0.0.1:8000/healthz").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'; then
+                return
+              fi
+              if [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" != true ]; then break; fi
+              sleep 1
+            done
+            docker logs "$container_id"
+            return 1
+          }
+          start_candidate
+          docker exec -i "$container_id" node --input-type=module < .github/scripts/mcp-smoke.mjs
+          first_identity="$(docker exec "$container_id" cat /data/machine-id)"
+          docker exec "$container_id" node --input-type=module -e \
+            'import { saveConfig } from "/usr/local/lib/node_modules/search-console-mcp/dist/common/auth/config.js"; await saveConfig({accounts:{},starAskShown:true});'
+          docker stop "$container_id" >/dev/null
+          docker rm "$container_id" >/dev/null
+          container_id=""
+          start_candidate
+          test "$first_identity" = "$(docker exec "$container_id" cat /data/machine-id)"
+          docker exec "$container_id" node --input-type=module -e \
+            'import assert from "node:assert/strict"; import { loadConfig } from "/usr/local/lib/node_modules/search-console-mcp/dist/common/auth/config.js"; assert.equal((await loadConfig()).starAskShown,true);'
+          docker exec -i "$container_id" node --input-type=module < .github/scripts/mcp-smoke.mjs
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish tested image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker tag "gsc-mcp-candidate:${GITHUB_SHA}" "${IMAGE_NAME}:${RELEASE_TAG}"
+          docker tag "gsc-mcp-candidate:${GITHUB_SHA}" "${IMAGE_NAME}:latest"
+          docker push "${IMAGE_NAME}:${RELEASE_TAG}"
+          docker push "${IMAGE_NAME}:latest"
