@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Source of truth: SCRIPTS/githubactions. Generated copies are overwritten.
 # Existing third-party Supergateway pin from the Smart1 inventory.
-FROM docker.io/supercorp/supergateway@sha256:095acf4471e142553c1a5514aa5e480abbc5885d00549d4a3481cc70eac53889
+FROM docker.io/supercorp/supergateway:4.1.0@sha256:1938c43538a5308bce07d58028e9de00b7acfecb40b39b059b2f3931800ad910
 
 ARG SEARCH_CONSOLE_MCP_VERSION=2.1.3
 LABEL org.opencontainers.image.title="safrano9999-GSC-MCP" \

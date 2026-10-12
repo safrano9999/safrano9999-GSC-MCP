@@ -1,5 +1,10 @@
 // Source of truth: SCRIPTS/githubactions. Generated copies are overwritten.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const gateway = '/usr/local/lib/node_modules/supergateway';
+assert.equal(JSON.parse(readFileSync(`${gateway}/package.json`)).version, '4.1.0');
+assert.equal(JSON.parse(readFileSync(`${gateway}/node_modules/@modelcontextprotocol/sdk/package.json`)).version, '1.30.0');
 
 const endpoint = 'http://127.0.0.1:8000/mcp';
 const headers = {
@@ -42,11 +47,12 @@ async function rpc(id, method, params) {
 }
 
 const initialized = await rpc(1, 'initialize', {
-  protocolVersion: '2024-11-05', capabilities: {},
+  protocolVersion: '2025-11-25', capabilities: {},
   clientInfo: { name: 'gsc-image-smoke', version: '1.0.0' },
 });
 assert(!initialized.error, JSON.stringify(initialized.error));
 assert(initialized.result.serverInfo);
+assert.equal(initialized.result.protocolVersion, '2025-11-25');
 headers['MCP-Protocol-Version'] = initialized.result.protocolVersion;
 await rpc(undefined, 'notifications/initialized', {});
 const listed = await rpc(2, 'tools/list', {});
