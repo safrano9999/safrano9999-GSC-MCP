@@ -1,10 +1,18 @@
 # syntax=docker/dockerfile:1.7
 # Source of truth: SCRIPTS/githubactions. Generated copies are overwritten.
 # Existing third-party Supergateway pin from the Smart1 inventory.
-FROM docker.io/supercorp/supergateway:4.1.0@sha256:1938c43538a5308bce07d58028e9de00b7acfecb40b39b059b2f3931800ad910
+FROM docker.io/supercorp/supergateway:4.1.0@sha256:1938c43538a5308bce07d58028e9de00b7acfecb40b39b059b2f3931800ad910 AS supergateway-source
+
+FROM docker.io/library/node:26.12.1-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797
+# Preserve the existing gateway and its complete dependency tree, without its old Node runtime.
+COPY --from=supergateway-source /usr/local/lib/node_modules/supergateway/ /usr/local/lib/node_modules/supergateway/
+RUN ln -s ../lib/node_modules/supergateway/dist/index.js /usr/local/bin/supergateway \
+    && test "$(node --version)" = "v26.12.1"
+
 
 ARG SEARCH_CONSOLE_MCP_VERSION=2.1.3
-LABEL org.opencontainers.image.title="safrano9999-GSC-MCP" \
+LABEL io.safrano9999.nodejs.version="26.12.1" \
+      org.opencontainers.image.title="safrano9999-GSC-MCP" \
       org.opencontainers.image.source="https://github.com/safrano9999/safrano9999-GSC-MCP" \
       io.safrano9999.upstream.source="https://github.com/saurabhsharma2u/search-console-mcp" \
       io.safrano9999.upstream.version="${SEARCH_CONSOLE_MCP_VERSION}"

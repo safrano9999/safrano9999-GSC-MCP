@@ -94,3 +94,11 @@ no other server implementation replaces the upstream package.
 On core/Rafael, all image pulls go through the explicitly requested Smart1 update
 flow. Repository creation does not add this image to `images.json`, pull it, or
 deploy/restart a host container.
+
+### Node.js runtime
+
+The image uses the official Node.js **26.12.1** Alpine image pinned by digest.
+Supergateway **4.1.0** and its bundled dependencies are copied intact from the
+existing pinned image; its Node.js 20 runtime is not included. The existing
+MCP transport, authentication and application settings are unchanged. GitHub
+Actions verifies the runtime version and MCP behavior before publishing.
